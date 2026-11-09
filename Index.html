@@ -1,0 +1,595 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#faf7f2">
+<title>Pantry tracker</title>
+<style>
+  :root{
+    --fg:#1a1a1a; --muted:#6b7280; --border:#e2ded7; --card:#fff;
+    --input:rgba(127,127,127,.09); --btn:#f0ece5; --accent:#2563eb;
+    --amber:#d98a00; --red:#d33a26; --blue:#2563eb; --green:#16a34a;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --fg:#f0eae2; --muted:#a29a90; --border:#3a352f; --card:#1c1917;
+           --input:rgba(255,255,255,.07); --btn:#2a2521; --accent:#5b8dff; --blue:#5b8dff; }
+    body{background:#12100e}
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#faf7f2;color:var(--fg);font:14px/1.35 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+       padding:14px 14px 40px;max-width:760px;margin:0 auto;-webkit-text-size-adjust:100%}
+  .top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+  .brand{display:flex;align-items:center;gap:8px;font-weight:500;font-size:15px}
+  .brand .sq{width:9px;height:9px;border-radius:2px;background:var(--accent)}
+  .tools{display:flex;gap:6px;flex-wrap:wrap}
+  button{font:inherit;font-size:13px;color:var(--fg);background:var(--btn);border:1px solid var(--border);
+         border-radius:7px;padding:6px 10px;cursor:pointer;white-space:nowrap}
+  button.primary{background:var(--accent);color:#fff;border-color:transparent;font-weight:500}
+  button.ghost{background:transparent}
+  button:disabled{opacity:.35}
+  .panel{border:1px solid var(--border);border-radius:9px;padding:10px;margin-bottom:10px;background:var(--card)}
+  .panel[hidden]{display:none}
+  .prow{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  .ptitle{font-weight:500;font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
+  input,select{font:inherit;font-size:13px;color:var(--fg);background:var(--input);border:1px solid transparent;
+        border-radius:6px;padding:6px 7px;width:100%}
+  input:focus,select:focus{outline:none;border-color:var(--accent);background:var(--card)}
+  select{appearance:none;-webkit-appearance:none;padding-right:20px;
+    background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);
+    background-position:calc(100% - 13px) 52%,calc(100% - 9px) 52%;background-size:4px 4px,4px 4px;background-repeat:no-repeat}
+  .lab{font-size:11.5px;color:var(--muted);white-space:nowrap}
+  video{width:100%;border-radius:8px;background:#000;display:block;max-height:300px;object-fit:cover}
+  .msg{font-size:12px;color:var(--muted);margin-top:8px}
+  .msg.err{color:var(--red)}
+  table{width:100%;border-collapse:collapse}
+  th{text-align:left;font-size:11px;font-weight:500;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);
+     padding:6px;border-bottom:1px solid var(--border);cursor:grab;touch-action:none;user-select:none;white-space:nowrap}
+  th.dragging{opacity:.4}
+  th .grip{opacity:.45;margin-right:5px}
+  th.act .grip{color:var(--accent);opacity:1}
+  td{padding:2px 4px;border-bottom:1px solid var(--border);vertical-align:middle}
+  td.icocell{width:34px;text-align:center}
+  tr{cursor:pointer}
+  tr.exp-yellow td{background:rgba(217,138,0,.17)}
+  tr.exp-yellow td:first-child{box-shadow:inset 3px 0 0 var(--amber)}
+  tr.exp-red td{background:rgba(211,58,38,.17)}
+  tr.exp-red td:first-child{box-shadow:inset 3px 0 0 var(--red)}
+  tr.exp-blue td{background:rgba(37,99,235,.18)}
+  tr.exp-blue td:first-child{box-shadow:inset 3px 0 0 var(--blue)}
+  tr.exp-yellow input,tr.exp-red input,tr.exp-blue input,
+  tr.exp-yellow select,tr.exp-red select,tr.exp-blue select{background-color:transparent}
+  .cellwrap{display:flex;flex-direction:column;gap:1px;min-width:70px}
+  .dlabel{font-size:10.5px;color:var(--muted);padding-left:7px}
+  .dlabel.warn{color:var(--amber);font-weight:500}
+  .dlabel.bad{color:var(--red);font-weight:500}
+  .dlabel.restock{color:var(--blue);font-weight:500}
+  .qwrap{display:flex;align-items:center;gap:3px}
+  .qbtn{width:22px;height:22px;padding:0;line-height:1;font-size:13px;border-radius:5px;flex:0 0 auto}
+  input.qty{text-align:center;width:44px;flex:0 0 auto}
+  .ico{padding:2px 6px;font-size:13px;background:transparent;border-color:transparent;color:var(--muted);line-height:1}
+  .ico:hover{color:var(--accent);border-color:var(--border)}
+  .del:hover{color:var(--red)}
+  .empty{padding:22px 6px;text-align:center;color:var(--muted)}
+  .foot{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:10px;padding-top:9px;border-top:1px solid var(--border)}
+  .foot b{color:var(--fg);font-weight:500}
+  .foot .y{color:var(--amber)} .foot .r{color:var(--red)} .foot .b{color:var(--blue)}
+  .colrow{display:flex;align-items:center;gap:6px;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px}
+  .colrow:last-child{border-bottom:none}
+  .mv{display:flex;gap:4px}
+  .mv button{padding:1px 8px;font-size:12px}
+  .hint{font-size:11.5px;color:var(--muted);margin-top:7px}
+  .toast{font-size:12px;color:var(--green);margin-top:8px}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="brand"><span class="sq"></span>Pantry tracker</div>
+  <div class="tools">
+    <button class="primary" id="addBtn">+ Add item</button>
+    <button id="scanBtn">Scan barcode</button>
+    <button id="colsBtn">Columns</button>
+    <button id="moreBtn">More</button>
+  </div>
+</div>
+
+<div class="panel" id="scanPanel" hidden>
+  <div class="ptitle"><span>Scan a barcode</span><button class="ghost" id="scanClose">Close</button></div>
+  <video id="video" playsinline muted autoplay></video>
+  <div class="prow" style="margin-top:8px">
+    <button id="photoBtn">Use a photo</button>
+    <input type="file" id="photoInput" accept="image/*" capture="environment" hidden>
+    <input type="text" id="manualCode" inputmode="numeric" placeholder="or type the digits" style="flex:1;min-width:120px">
+    <button id="manualBtn">Look up</button>
+  </div>
+  <div class="msg" id="scanMsg"></div>
+</div>
+
+<div class="panel" id="movePanel" hidden>
+  <div class="ptitle"><span id="moveTitle">Move item</span><button class="ghost" id="moveClose">Cancel</button></div>
+  <div class="prow">
+    <span class="lab">To</span>
+    <select id="moveDest" style="flex:1;min-width:130px"><option value="">Pick a location…</option></select>
+    <span class="lab">Qty</span>
+    <input type="number" id="moveQty" min="1" value="1" inputmode="numeric" style="width:66px">
+    <button class="primary" id="moveGo">Move</button>
+  </div>
+  <div class="hint" id="moveHint"></div>
+</div>
+
+<div class="panel" id="colsPanel" hidden>
+  <div class="ptitle"><span>Column order</span><button class="ghost" id="colsClose">Close</button></div>
+  <div id="colList"></div>
+  <div class="hint">You can also drag the column headers directly, or tap a header to sort by it.</div>
+</div>
+
+<div class="panel" id="morePanel" hidden>
+  <div class="ptitle"><span>Data &amp; backup</span><button class="ghost" id="moreClose">Close</button></div>
+  <div class="prow">
+    <button id="exportBtn">Export backup</button>
+    <button id="importBtn">Import backup</button>
+    <input type="file" id="importInput" accept="application/json,.json" hidden>
+    <button id="clearBtn">Clear everything</button>
+  </div>
+  <div class="hint">Everything is stored only in this browser on this device. The lookup sends just the barcode number to the public Open Food Facts database.</div>
+  <div class="msg" id="moreMsg"></div>
+</div>
+
+<table><thead><tr id="head"></tr></thead><tbody id="body"></tbody></table>
+<div id="emptyState" class="empty" hidden>Nothing tracked yet. Tap "Add item" to start.</div>
+<div class="foot" id="foot"></div>
+
+<script>
+(function(){
+  "use strict";
+  var DATA_KEY="pantry_items_v2", COL_KEY="pantry_cols_v2", SORT_KEY="pantry_sort_v1";
+  var LOCS=["TT Bag","On Person","Restock Bag","Used"];
+  var USE_LABEL="Used (use up)";
+  var LABELS={item:"Item",location:"Location",expires:"Expiration",qty:"Qty",barcode:"Barcode",move:"",del:""};
+  var ALL_COLS=["item","location","expires","qty","barcode","move","del"];
+  var WIDTHS={location:"140px",expires:"146px",qty:"118px",barcode:"120px",move:"34px",del:"34px"};
+  var items=[], cols=ALL_COLS.slice(), sortState=null, uid=1, moveId=null;
+
+  function load(){
+    try{
+      var raw=localStorage.getItem(DATA_KEY)||localStorage.getItem("pantry_items_v1");
+      if(raw){ var arr=JSON.parse(raw);
+        if(Array.isArray(arr)) items=arr.map(function(o){ return {id:++uid,item:o.item||"",location:o.location||"",expires:o.expires||"",qty:o.qty===0?0:(o.qty||1),barcode:o.barcode||""}; });
+      }
+      var c=JSON.parse(localStorage.getItem(COL_KEY)||"null");
+      if(Array.isArray(c)&&c.length===ALL_COLS.length) cols=ALL_COLS.slice().sort(function(a,b){ return c.indexOf(a)-c.indexOf(b); });
+      var s=JSON.parse(localStorage.getItem(SORT_KEY)||"null");
+      if(s&&s.key) sortState=s;
+    }catch(e){}
+    if(!items.length) seed();
+  }
+  function seed(){
+    var d=function(n){ var t=new Date(); t.setDate(t.getDate()+n); return t.toISOString().slice(0,10); };
+    items=[
+      {id:++uid,item:"Greek yogurt",location:"TT Bag",expires:d(4),qty:2,barcode:""},
+      {id:++uid,item:"Canned tomatoes",location:"Restock Bag",expires:d(21),qty:3,barcode:""},
+      {id:++uid,item:"Olive oil",location:"Restock Bag",expires:d(240),qty:1,barcode:""},
+      {id:++uid,item:"Spinach",location:"TT Bag",expires:d(-3),qty:1,barcode:""},
+      {id:++uid,item:"Oat milk",location:"Restock Bag",expires:d(90),qty:0,barcode:""}
+    ];
+    save();
+  }
+  function save(){
+    try{ localStorage.setItem(DATA_KEY, JSON.stringify(items.map(function(o){
+      return {item:o.item,location:o.location,expires:o.expires,qty:o.qty,barcode:o.barcode}; }))); }catch(e){}
+  }
+  function daysUntil(s){
+    if(!s) return null; var p=s.split("-"); if(p.length!==3) return null;
+    var d=new Date(+p[0],+p[1]-1,+p[2]); if(isNaN(d)) return null;
+    var t=new Date(); t.setHours(0,0,0,0);
+    return Math.round((d-t)/86400000);
+  }
+  function statusOf(s){ var n=daysUntil(s); if(n===null) return ""; if(n<0) return "red"; if(n<=30) return "yellow"; return ""; }
+  function rowStatus(it){ if((+it.qty||0)<=0) return "blue"; return statusOf(it.expires); }
+  function humanDays(n){
+    if(n===null) return ""; if(n<0){ var a=Math.abs(n); return a===1?"expired yesterday":"expired "+a+" days ago"; }
+    if(n===0) return "expires today"; if(n===1) return "1 day left"; return n+" days left";
+  }
+  function sorted(){
+    if(!sortState) return items;
+    var k=sortState.key, dir=sortState.dir==="desc"?-1:1;
+    return items.slice().sort(function(a,b){
+      if(k==="expires"){ var av=a.expires?daysUntil(a.expires):99999, bv=b.expires?daysUntil(b.expires):99999;
+        if(av===null)av=99999; if(bv===null)bv=99999; return (av-bv)*dir; }
+      if(k==="qty") return ((+a.qty||0)-(+b.qty||0))*dir;
+      var x=(a[k]||"").toLowerCase(), y=(b[k]||"").toLowerCase();
+      return x<y?-dir:x>y?dir:0;
+    });
+  }
+  function renderHead(){
+    var tr=document.getElementById("head"); tr.innerHTML="";
+    cols.forEach(function(key){
+      var th=document.createElement("th");
+      if(WIDTHS[key]) th.style.width=WIDTHS[key];
+      if(sortState&&sortState.key===key) th.classList.add("act");
+      if(key==="del"||key==="move") th.innerHTML="";
+      else th.innerHTML='<span class="grip">⠿</span>'+LABELS[key]+(sortState&&sortState.key===key?(sortState.dir==="desc"?" ▾":" ▴"):"");
+      th.dataset.key=key; tr.appendChild(th);
+    });
+  }
+  function restockBadge(){
+    var b=document.createElement("div"); b.className="dlabel restock"; b.textContent="needs restock"; return b;
+  }
+  function makeCell(it,key){
+    var td=document.createElement("td");
+    if(key==="del"||key==="move"){
+      td.className="icocell";
+      var b=document.createElement("button");
+      b.className="ico"+(key==="del"?" del":""); b.textContent=key==="del"?"✕":"⇄";
+      b.title=key==="del"?"Delete":"Move or use";
+      b.onclick=function(e){ e.stopPropagation(); if(key==="del") removeItem(it.id); else openMove(it.id); };
+      td.appendChild(b); return td;
+    }
+    if(key==="location"){
+      var sel=document.createElement("select"); sel.dataset.id=it.id; sel.dataset.key="location";
+      var blank=document.createElement("option"); blank.value=""; blank.textContent="—"; sel.appendChild(blank);
+      var opts=LOCS.slice();
+      if(it.location&&opts.indexOf(it.location)===-1) opts.push(it.location);
+      opts.forEach(function(name){ var o=document.createElement("option"); o.value=name; o.textContent=name==="Used"?USE_LABEL:name; sel.appendChild(o); });
+      sel.value=it.location||"";
+      td.appendChild(sel); return td;
+    }
+    if(key==="expires"){
+      var w=document.createElement("div"); w.className="cellwrap";
+      var i=document.createElement("input"); i.type="date"; i.value=it.expires||"";
+      i.dataset.id=it.id; i.dataset.key="expires";
+      var l=document.createElement("div"); l.className="dlabel"; l.dataset.dlabel=it.id;
+      var n=daysUntil(it.expires); l.textContent=humanDays(n);
+      if(n!==null&&n<0) l.classList.add("bad"); else if(n!==null&&n<=30) l.classList.add("warn");
+      w.appendChild(i); w.appendChild(l); td.appendChild(w); return td;
+    }
+    if(key==="qty"){
+      var cw=document.createElement("div"); cw.className="cellwrap";
+      var qw=document.createElement("div"); qw.className="qwrap";
+      var m=document.createElement("button"); m.className="qbtn"; m.textContent="−";
+      m.onclick=function(e){ e.stopPropagation(); bump(it.id,-1); };
+      var q=document.createElement("input"); q.type="number"; q.min="0"; q.className="qty"; q.inputMode="numeric";
+      q.value=it.qty===0?0:(it.qty||1); q.dataset.id=it.id; q.dataset.key="qty";
+      var p=document.createElement("button"); p.className="qbtn"; p.textContent="+";
+      p.onclick=function(e){ e.stopPropagation(); bump(it.id,1); };
+      qw.appendChild(m); qw.appendChild(q); qw.appendChild(p); cw.appendChild(qw);
+      if((+it.qty||0)<=0) cw.appendChild(restockBadge());
+      td.appendChild(cw); return td;
+    }
+    var inp=document.createElement("input"); inp.type="text"; inp.value=it[key]||"";
+    inp.dataset.id=it.id; inp.dataset.key=key;
+    if(key==="barcode") inp.inputMode="numeric";
+    if(key==="item") inp.placeholder="Item name";
+    td.appendChild(inp); return td;
+  }
+  function render(){
+    renderHead();
+    var body=document.getElementById("body"); body.innerHTML="";
+    var rows=sorted();
+    rows.forEach(function(it){
+      var tr=document.createElement("tr");
+      var st=rowStatus(it); if(st) tr.classList.add("exp-"+st);
+      tr.dataset.row=it.id;
+      cols.forEach(function(k){ tr.appendChild(makeCell(it,k)); });
+      body.appendChild(tr);
+    });
+    document.getElementById("emptyState").hidden=rows.length>0;
+    renderFoot(); renderColList();
+  }
+  function refreshRow(it){
+    var tr=document.querySelector('tr[data-row="'+it.id+'"]'); if(!tr) return;
+    tr.classList.remove("exp-yellow","exp-red","exp-blue");
+    var st=rowStatus(it); if(st) tr.classList.add("exp-"+st);
+    var qwrap=tr.querySelector(".qwrap");
+    if(qwrap&&qwrap.parentNode){
+      var holder=qwrap.parentNode;
+      var old=holder.querySelector(".restock"); if(old) old.remove();
+      if((+it.qty||0)<=0) holder.appendChild(restockBadge());
+    }
+    var lab=tr.querySelector('[data-dlabel="'+it.id+'"]');
+    if(lab){
+      var n=daysUntil(it.expires); lab.textContent=humanDays(n);
+      lab.classList.remove("warn","bad");
+      if(n!==null&&n<0) lab.classList.add("bad"); else if(n!==null&&n<=30) lab.classList.add("warn");
+    }
+  }
+  function renderFoot(){
+    var exp=0, soon=0, out=0;
+    items.forEach(function(it){
+      if((+it.qty||0)<=0){ out++; return; }
+      var s=statusOf(it.expires); if(s==="red")exp++; else if(s==="yellow")soon++;
+    });
+    var f=document.getElementById("foot"); f.innerHTML="";
+    [["",items.length+" entries"],["y",soon+" expiring in 30 days"],["r",exp+" expired"],["b",out+" need restock"]].forEach(function(p){
+      var sp=document.createElement("span"); sp.className=p[0]; sp.innerHTML="<b>"+p[1]+"</b>"; f.appendChild(sp);
+    });
+  }
+  function renderColList(){
+    var list=document.getElementById("colList"); if(!list) return; list.innerHTML="";
+    cols.forEach(function(key,i){
+      var row=document.createElement("div"); row.className="colrow";
+      var nm=document.createElement("span");
+      nm.textContent=key==="del"?"Delete button":key==="move"?"Move button":LABELS[key];
+      var mv=document.createElement("div"); mv.className="mv";
+      var l=document.createElement("button"); l.textContent="◀"; l.disabled=i===0; l.onclick=function(){ moveCol(i,i-1); };
+      var r=document.createElement("button"); r.textContent="▶"; r.disabled=i===cols.length-1; r.onclick=function(){ moveCol(i,i+1); };
+      mv.appendChild(l); mv.appendChild(r); row.appendChild(nm); row.appendChild(mv); list.appendChild(row);
+    });
+  }
+  function moveCol(from,to){
+    if(to<0||to>=cols.length) return;
+    cols.splice(to,0,cols.splice(from,1)[0]);
+    try{ localStorage.setItem(COL_KEY, JSON.stringify(cols)); }catch(e){}
+    render();
+  }
+  function addItem(pre){
+    var it={id:++uid,item:"",location:"",expires:"",qty:1,barcode:""};
+    if(pre) Object.keys(pre).forEach(function(k){ it[k]=pre[k]; });
+    items.push(it); save(); render();
+    var fk=pre&&pre.item?"location":"item";
+    var el=document.querySelector('[data-id="'+it.id+'"][data-key="'+fk+'"]'); if(el) el.focus();
+    return it;
+  }
+  function removeItem(id){ items=items.filter(function(i){ return i.id!==id; }); save(); render(); }
+  function bump(id,d){
+    var it=items.filter(function(i){ return i.id===id; })[0]; if(!it) return;
+    it.qty=Math.max(0,(+it.qty||0)+d); save();
+    var el=document.querySelector('input[data-id="'+id+'"][data-key="qty"]'); if(el) el.value=it.qty;
+    refreshRow(it); renderFoot();
+  }
+
+  function consume(it,n){
+    var have=Math.max(0,+it.qty||0);
+    if(have<=0){ flash("Nothing left of “"+(it.item||"item")+"”."); return; }
+    n=Math.min(Math.max(1,Math.round(n)||1),have);
+    var name=it.item||"item";
+    it.qty=have-n; save(); render();
+    flash(it.qty===0 ? "Used all “"+name+"” — flagged for restock"
+                     : "Used "+n+" × “"+name+"” — "+it.qty+" left");
+  }
+
+  function openMove(id){
+    var it=items.filter(function(i){ return i.id===id; })[0]; if(!it) return;
+    moveId=id;
+    document.getElementById("moveTitle").textContent="Move “"+(it.item||"item")+"”";
+    document.getElementById("moveDest").value="";
+    var q=document.getElementById("moveQty"); var have=Math.max(0,+it.qty||0);
+    q.max=Math.max(1,have); q.value=Math.max(1,have);
+    document.getElementById("moveHint").textContent = have>1
+      ? "You have "+have+". Move fewer to split across locations. Picking Used removes the chosen units instead of storing them."
+      : have===0 ? "Nothing in stock — this only re-files the entry."
+                 : "Picking Used removes the units instead of storing them.";
+    document.getElementById("movePanel").hidden=false;
+    document.getElementById("moveDest").focus();
+  }
+  function closeMove(){ document.getElementById("movePanel").hidden=true; moveId=null; }
+  document.getElementById("moveClose").onclick=closeMove;
+
+  document.getElementById("moveGo").onclick=function(){
+    var it=items.filter(function(i){ return i.id===moveId; })[0];
+    if(!it){ closeMove(); return; }
+    var dest=document.getElementById("moveDest").value;
+    var have=Math.max(0,+it.qty||0);
+    var n=Math.round(+document.getElementById("moveQty").value||0);
+    if(!dest){ document.getElementById("moveHint").textContent="Pick a location first."; return; }
+    if(dest==="Used"){ consume(it,n||1); closeMove(); return; }
+    if(dest===it.location){ document.getElementById("moveHint").textContent="Already in "+dest+"."; return; }
+    if(have===0||n>=have){
+      it.location=dest; save(); render(); flash("Moved “"+(it.item||"item")+"” to "+dest);
+    }else{
+      n=Math.max(1,n); it.qty=have-n;
+      items.push({id:++uid,item:it.item,location:dest,expires:it.expires,qty:n,barcode:it.barcode});
+      save(); render(); flash("Split: "+n+" × “"+(it.item||"item")+"” → "+dest);
+    }
+    closeMove();
+  };
+
+  document.getElementById("body").addEventListener("click",function(e){
+    if(e.target.closest("input, select, button")) return;
+    var tr=e.target.closest("tr"); if(!tr) return;
+    openMove(+tr.dataset.row);
+  });
+  document.getElementById("body").addEventListener("input",function(e){
+    var t=e.target; if(!t.dataset||!t.dataset.id) return;
+    var it=items.filter(function(i){ return i.id===+t.dataset.id; })[0]; if(!it) return;
+    var k=t.dataset.key;
+    it[k]=k==="qty"?Math.max(0,+t.value||0):t.value; save();
+    if(k==="expires"||k==="qty"){ refreshRow(it); renderFoot(); }
+  });
+  document.getElementById("body").addEventListener("change",function(e){
+    var t=e.target; if(t.tagName!=="SELECT"||!t.dataset.id) return;
+    var it=items.filter(function(i){ return i.id===+t.dataset.id; })[0]; if(!it) return;
+    if(t.value==="Used"){
+      var have=Math.max(0,+it.qty||0);
+      if(have<=0){ render(); flash("Nothing left of “"+(it.item||"item")+"”."); }
+      else consume(it,have);
+      return;
+    }
+    it.location=t.value; save();
+  });
+  document.getElementById("body").addEventListener("keydown",function(e){
+    if(e.key==="Enter"&&e.target.tagName==="INPUT"){ e.preventDefault(); e.target.blur(); }
+  });
+
+  var drag=null, head=document.getElementById("head");
+  head.addEventListener("pointerdown",function(e){
+    var th=e.target.closest("th"); if(!th) return;
+    drag={key:th.dataset.key,x:e.clientX,y:e.clientY,moved:false,el:th}; th.classList.add("dragging");
+  });
+  window.addEventListener("pointermove",function(e){
+    if(!drag) return;
+    if(!drag.moved&&(Math.abs(e.clientX-drag.x)>7||Math.abs(e.clientY-drag.y)>7)) drag.moved=true;
+    if(!drag.moved) return;
+    var ov=document.elementFromPoint(e.clientX,e.clientY);
+    var th=ov&&ov.closest?ov.closest("th"):null;
+    if(!th||th===drag.el) return;
+    var from=cols.indexOf(drag.key), to=cols.indexOf(th.dataset.key);
+    if(from<0||to<0) return;
+    cols.splice(to,0,cols.splice(from,1)[0]);
+    try{ localStorage.setItem(COL_KEY, JSON.stringify(cols)); }catch(err){}
+    renderHead();
+    var nd=document.querySelector('th[data-key="'+drag.key+'"]');
+    if(nd){ nd.classList.add("dragging"); drag.el=nd; }
+  });
+  window.addEventListener("pointerup",function(){
+    if(!drag) return; var d=drag; drag=null;
+    if(d.el) d.el.classList.remove("dragging");
+    if(!d.moved){
+      if(d.key==="del"||d.key==="move") return;
+      if(sortState&&sortState.key===d.key) sortState.dir=sortState.dir==="asc"?"desc":"asc";
+      else sortState={key:d.key,dir:"asc"};
+      try{ localStorage.setItem(SORT_KEY, JSON.stringify(sortState)); }catch(e){}
+      render();
+    }
+  });
+
+  function toggle(id,show){ var p=document.getElementById(id); p.hidden=show===undefined?!p.hidden:!show; }
+  document.getElementById("addBtn").onclick=function(){ addItem(); };
+  document.getElementById("colsBtn").onclick=function(){ toggle("colsPanel"); };
+  document.getElementById("colsClose").onclick=function(){ toggle("colsPanel",false); };
+  document.getElementById("moreBtn").onclick=function(){ toggle("morePanel"); };
+  document.getElementById("moreClose").onclick=function(){ toggle("morePanel",false); };
+
+  document.getElementById("exportBtn").onclick=function(){
+    var blob=new Blob([JSON.stringify(items,null,2)],{type:"application/json"});
+    var a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+    a.download="pantry-backup-"+new Date().toISOString().slice(0,10)+".json"; a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); },4000);
+  };
+  document.getElementById("importBtn").onclick=function(){ document.getElementById("importInput").click(); };
+  document.getElementById("importInput").onchange=function(e){
+    var f=e.target.files[0]; if(!f) return; var r=new FileReader();
+    r.onload=function(){
+      try{
+        var arr=JSON.parse(r.result); if(!Array.isArray(arr)) throw 0;
+        arr.forEach(function(o){ items.push({id:++uid,item:o.item||"",location:o.location||"",expires:o.expires||"",qty:o.qty===0?0:(+o.qty||1),barcode:o.barcode||""}); });
+        save(); render(); document.getElementById("moreMsg").textContent="Imported "+arr.length+" entries.";
+      }catch(err){ document.getElementById("moreMsg").textContent="That file didn't look like a backup."; }
+    };
+    r.readAsText(f); e.target.value="";
+  };
+  document.getElementById("clearBtn").onclick=function(){
+    if(!confirm("Delete all entries?")) return;
+    items=[]; save(); render(); document.getElementById("moreMsg").textContent="All entries deleted.";
+  };
+
+  var video=document.getElementById("video"), scanMsg=document.getElementById("scanMsg");
+  var stream=null, zxReader=null, scanning=false, detector=null, timer=null;
+  function say(t,err){ scanMsg.textContent=t||""; scanMsg.className="msg"+(err?" err":""); }
+  function stopScan(){
+    scanning=false;
+    if(timer){ clearInterval(timer); timer=null; }
+    if(zxReader){ try{ zxReader.reset(); }catch(e){} zxReader=null; }
+    if(stream){ stream.getTracks().forEach(function(t){ t.stop(); }); stream=null; }
+    video.srcObject=null;
+  }
+  document.getElementById("scanBtn").onclick=function(){
+    toggle("scanPanel");
+    if(!document.getElementById("scanPanel").hidden) startScan(); else stopScan();
+  };
+  document.getElementById("scanClose").onclick=function(){ stopScan(); toggle("scanPanel",false); };
+
+  function loadZXing(){
+    return new Promise(function(res,rej){
+      if(window.ZXing) return res();
+      var s=document.createElement("script");
+      s.src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js";
+      s.onload=function(){ res(); }; s.onerror=function(){ rej(new Error("zx")); };
+      document.head.appendChild(s);
+    });
+  }
+  async function startScan(){
+    say("");
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ say("This browser can't open the camera here. Use a photo or type the digits.",true); return; }
+    try{
+      stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"},width:{ideal:1280}},audio:false});
+      video.srcObject=stream; await video.play(); scanning=true;
+      if("BarcodeDetector" in window){
+        try{ detector=new window.BarcodeDetector({formats:["ean_13","ean_8","upc_a","upc_e","code_128","code_39","itf","qr_code"]}); }
+        catch(e){ detector=new window.BarcodeDetector(); }
+        timer=setInterval(async function(){
+          if(!scanning) return;
+          try{ var c=await detector.detect(video); if(c&&c.length) onCode(c[0].rawValue); }catch(e){}
+        },220);
+        say("Point the camera at the barcode.");
+      }else{
+        await loadZXing();
+        zxReader=new window.ZXing.BrowserMultiFormatReader();
+        say("Point the camera at the barcode.");
+        zxReader.decodeFromVideoElement(video,function(r){ if(r&&r.getText&&scanning) onCode(r.getText()); });
+      }
+    }catch(err){ say("Camera blocked. Use a photo or type the digits instead.",true); }
+  }
+  document.getElementById("photoBtn").onclick=function(){ document.getElementById("photoInput").click(); };
+  document.getElementById("photoInput").onchange=async function(e){
+    var f=e.target.files[0]; if(!f) return; say("Reading photo…");
+    try{
+      await loadZXing();
+      var rd=new window.ZXing.BrowserMultiFormatReader();
+      var url=URL.createObjectURL(f);
+      var res=await rd.decodeFromImageUrl(url);
+      URL.revokeObjectURL(url);
+      if(res&&res.getText) onCode(res.getText);
+    }catch(err){ say("Couldn't find a barcode in that photo.",true); }
+    e.target.value="";
+  };
+  document.getElementById("manualBtn").onclick=function(){
+    var v=document.getElementById("manualCode").value.replace(/[^0-9A-Za-z]/g,""); if(v) onCode(v);
+  };
+
+  var pending=false;
+  function onCode(code){
+    if(pending) return; pending=true;
+    stopScan(); toggle("scanPanel",false);
+    document.getElementById("manualCode").value="";
+    var it=addItem({barcode:code});
+    lookup(code).then(function(prod){
+      if(prod){
+        if(prod.name) it.item=prod.name;
+        if(prod.qty) it.qty=prod.qty;
+        save();
+        var tr=document.querySelector('tr[data-row="'+it.id+'"]');
+        if(tr){ var ni=tr.querySelector('input[data-key="item"]'); if(ni) ni.value=it.item;
+                var nq=tr.querySelector('input[data-key="qty"]'); if(nq) nq.value=it.qty; }
+        refreshRow(it);
+        flash("Found: "+it.item);
+      }else{ flash("No public record for that barcode — type the name in."); }
+      var n2=document.querySelector('input[data-id="'+it.id+'"][data-key="item"]');
+      if(n2&&!it.item) n2.focus();
+      pending=false;
+    });
+  }
+  function lookup(code){
+    return new Promise(function(res){
+      var done=false;
+      var t=setTimeout(function(){ if(!done){ done=true; res(null); } },7000);
+      fetch("https://world.openfoodfacts.org/api/v2/product/"+encodeURIComponent(code)+".json?fields=product_name,generic_name,brands,quantity",{headers:{Accept:"application/json"}})
+        .then(function(r){ return r.ok?r.json():null; })
+        .then(function(j){
+          if(done) return; done=true; clearTimeout(t);
+          if(!j||j.status!==1||!j.product) return res(null);
+          var p=j.product, name=(p.product_name||p.generic_name||"").trim();
+          if(p.brands&&name&&name.toLowerCase().indexOf(p.brands.split(",")[0].toLowerCase())===-1) name=name+" ("+p.brands.split(",")[0].trim()+")";
+          var m=/(\d+(?:\.\d+)?)/.exec(p.quantity||"");
+          res({name:name,qty:m?Math.max(1,Math.round(+m[1])):null});
+        })
+        .catch(function(){ if(!done){ done=true; clearTimeout(t); res(null); } });
+    });
+  }
+  function flash(text){
+    var d=document.createElement("div"); d.className="toast"; d.textContent=text;
+    var f=document.getElementById("foot"); f.parentNode.insertBefore(d,f.nextSibling);
+    setTimeout(function(){ d.remove(); },4000);
+  }
+
+  LOCS.forEach(function(name){
+    var o=document.createElement("option"); o.value=name;
+    o.textContent=name==="Used"?USE_LABEL:name;
+    document.getElementById("moveDest").appendChild(o);
+  });
+
+  load(); render();
+})();
+</script>
+</body>
+</html>
